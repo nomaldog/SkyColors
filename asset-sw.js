@@ -1,5 +1,6 @@
-const AES_KEY_B64 = "G9ODDQtxe9DD+7GO24St/a8WlHeWpwNwqEPG3YbuTc8=";
+const AES_KEY_B64 = "taODqfc2fZK2jk9EPf9ge0l85u/m9mzNhU66011MG1E=";
 const PATH_SEED = AES_KEY_B64;
+const BASE_PATH = "/SkyColors/";
 const PROTECTED_OUTPUT_DIR = "_p";
 const SKIP_EXTENSIONS = new Set([".js", ".css", ".map", ".html"]);
 
@@ -35,8 +36,10 @@ self.addEventListener("fetch", (event) => {
 async function handleFetch(request) {
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return fetch(request);
-  if (!isProtectedLogicalPath(url.pathname)) return fetch(request);
-  const mappedPath = await obfuscatePath(url.pathname);
+  const logicalPath = stripBasePath(url.pathname);
+  if (!logicalPath) return fetch(request);
+  if (!isProtectedLogicalPath(logicalPath)) return fetch(request);
+  const mappedPath = withBasePath(await obfuscatePath(logicalPath));
   return decryptResponse(request, mappedPath);
 }
 
@@ -50,6 +53,19 @@ function getExtension(pathname) {
   const index = pathname.lastIndexOf(".");
   if (index < 0) return "";
   return pathname.slice(index).toLowerCase();
+}
+
+function stripBasePath(pathname) {
+  if (BASE_PATH === "/") return pathname;
+  if (!pathname.startsWith(BASE_PATH)) return null;
+  const suffix = pathname.slice(BASE_PATH.length - 1);
+  return suffix.startsWith("/") ? suffix : "/" + suffix;
+}
+
+function withBasePath(pathname) {
+  if (BASE_PATH === "/") return pathname;
+  const normalizedPath = pathname.startsWith("/") ? pathname.slice(1) : pathname;
+  return BASE_PATH + normalizedPath;
 }
 
 async function obfuscatePath(logicalPath) {
