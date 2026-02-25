@@ -1,4 +1,4 @@
-const AES_KEY_B64 = "taODqfc2fZK2jk9EPf9ge0l85u/m9mzNhU66011MG1E=";
+const AES_KEY_B64 = "I2h9qlaqvky0mkeHtevaB3F96WuJFnNcFibA/SoBCOs=";
 const PATH_SEED = AES_KEY_B64;
 const BASE_PATH = "/SkyColors/";
 const PROTECTED_OUTPUT_DIR = "_p";
@@ -34,6 +34,7 @@ self.addEventListener("fetch", (event) => {
 });
 
 async function handleFetch(request) {
+  if (request.mode === "navigate") return fetch(request);
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return fetch(request);
   const logicalPath = stripBasePath(url.pathname);
@@ -88,7 +89,17 @@ async function sha256Hex(input) {
 async function decryptResponse(request, mappedPath) {
   const rewrittenUrl = new URL(request.url);
   rewrittenUrl.pathname = mappedPath;
-  const encryptedResponse = await fetch(new Request(rewrittenUrl.toString(), request));
+  const encryptedResponse = await fetch(rewrittenUrl.toString(), {
+    method: "GET",
+    credentials: "same-origin",
+    cache: request.cache,
+    redirect: request.redirect,
+    referrer: request.referrer,
+    referrerPolicy: request.referrerPolicy,
+    integrity: request.integrity,
+    keepalive: request.keepalive,
+    headers: request.headers
+  });
   if (!encryptedResponse.ok) return encryptedResponse;
 
   const encryptedBytes = new Uint8Array(await encryptedResponse.arrayBuffer());
