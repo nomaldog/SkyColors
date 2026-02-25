@@ -1,7 +1,7 @@
-const AES_KEY_B64 = "I2h9qlaqvky0mkeHtevaB3F96WuJFnNcFibA/SoBCOs=";
+const AES_KEY_B64 = "M5BncoFKcBlz7shuAAJvK0nTPu/BGTyDOd0zvolFSXg=";
 const PATH_SEED = AES_KEY_B64;
 const BASE_PATH = "/SkyColors/";
-const PROTECTED_OUTPUT_DIR = "_p";
+const PROTECTED_OUTPUT_DIR = "p";
 const SKIP_EXTENSIONS = new Set([".js", ".css", ".map", ".html"]);
 
 const keyPromise = crypto.subtle.importKey(
