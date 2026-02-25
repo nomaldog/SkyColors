@@ -1,4 +1,4 @@
-const AES_KEY_B64 = "G4tXHXGtkCkleVjUcHRB+64rwDYdXOHYsLesc42GSbc=";
+const AES_KEY_B64 = "i1+3XjhXnLtvOMvM8VrtM2emadH8Uhpa98mYSvPXFgM=";
 const PATH_SEED = AES_KEY_B64;
 const BASE_PATH = "/SkyColors/";
 const PROTECTED_OUTPUT_DIR = "p";
@@ -89,6 +89,7 @@ async function sha256Hex(input) {
 async function decryptResponse(request, mappedPath) {
   const rewrittenUrl = new URL(request.url);
   rewrittenUrl.pathname = mappedPath;
+  const rangeHeader = request.headers.get("range");
   const encryptedResponse = await fetch(rewrittenUrl.toString(), {
     method: "GET",
     credentials: "same-origin",
@@ -97,8 +98,7 @@ async function decryptResponse(request, mappedPath) {
     referrer: request.referrer,
     referrerPolicy: request.referrerPolicy,
     integrity: request.integrity,
-    keepalive: request.keepalive,
-    headers: request.headers
+    keepalive: request.keepalive
   });
   if (!encryptedResponse.ok) return encryptedResponse;
 
@@ -116,8 +116,40 @@ async function decryptResponse(request, mappedPath) {
       key,
       ciphertextWithTag
     );
+    const plainBytes = new Uint8Array(plainBuffer);
+    const contentType =
+      encryptedResponse.headers.get("Content-Type") ?? "application/octet-stream";
+    const contentRange = parseRangeHeader(rangeHeader, plainBytes.byteLength);
+
+    if (contentRange) {
+      if (contentRange.unsatisfiable) {
+        return new Response(null, {
+          status: 416,
+          headers: {
+            "Content-Range": "bytes */" + contentRange.size,
+            "Accept-Ranges": "bytes",
+            "X-Asset-Protection": "sw-aes-gcm"
+          }
+        });
+      }
+
+      const partial = plainBytes.slice(contentRange.start, contentRange.end + 1);
+      return new Response(partial, {
+        status: 206,
+        headers: {
+          "Content-Type": contentType,
+          "Content-Range":
+            "bytes " + contentRange.start + "-" + contentRange.end + "/" + contentRange.size,
+          "Content-Length": String(partial.byteLength),
+          "Accept-Ranges": "bytes",
+          "X-Asset-Protection": "sw-aes-gcm"
+        }
+      });
+    }
+
     const headers = new Headers(encryptedResponse.headers);
     headers.set("X-Asset-Protection", "sw-aes-gcm");
+    headers.set("Content-Type", contentType);
     headers.delete("Content-Length");
     return new Response(plainBuffer, {
       status: encryptedResponse.status,
@@ -127,4 +159,37 @@ async function decryptResponse(request, mappedPath) {
   } catch {
     return new Response("Failed to decrypt asset", { status: 500 });
   }
+}
+
+function parseRangeHeader(headerValue, size) {
+  if (!headerValue) return null;
+  const match = /^bytes=(d*)-(d*)$/i.exec(headerValue.trim());
+  if (!match) return null;
+
+  const rawStart = match[1];
+  const rawEnd = match[2];
+  let start = rawStart ? Number(rawStart) : null;
+  let end = rawEnd ? Number(rawEnd) : null;
+
+  if (start === null && end === null) return null;
+  if (start !== null && (!Number.isFinite(start) || start < 0)) return null;
+  if (end !== null && (!Number.isFinite(end) || end < 0)) return null;
+
+  if (start === null) {
+    const suffixLength = end ?? 0;
+    if (suffixLength <= 0) return null;
+    start = Math.max(0, size - suffixLength);
+    end = size - 1;
+  } else {
+    if (end === null || end >= size) end = size - 1;
+  }
+
+  if (start >= size) {
+    return { unsatisfiable: true, size };
+  }
+  if (end < start) {
+    return { unsatisfiable: true, size };
+  }
+
+  return { start, end, size };
 }
