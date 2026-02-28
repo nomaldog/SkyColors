@@ -1,4 +1,4 @@
-const AES_KEY_B64 = "3w58ujdjVEK5tVgkkxJz8Lrr1bGG7Nc8KRNF+sbXUB8=";
+const AES_KEY_B64 = "QrqRGt6iNOUzDxICkIMSbyM1FwKnPQ/N1POcwxuQPCc=";
 const PATH_SEED = AES_KEY_B64;
 const BASE_PATH = "/SkyColors/";
 const PROTECTED_OUTPUT_DIR = "p";
